@@ -1,0 +1,83 @@
+-- Drop existing tables if any (for clean setup)
+DROP TABLE IF EXISTS Billing;
+DROP TABLE IF EXISTS Bookings;
+DROP TABLE IF EXISTS Rooms;
+DROP TABLE IF EXISTS Customers;
+
+-- 1. Create Customers Table
+CREATE TABLE Customers (
+    customer_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(15),
+    email VARCHAR(100)
+);
+
+-- 2. Create Rooms Table
+CREATE TABLE Rooms (
+    room_id INT AUTO_INCREMENT PRIMARY KEY,
+    room_number VARCHAR(10) NOT NULL UNIQUE,
+    type ENUM('Single', 'Double', 'Suite') NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    status ENUM('Available', 'Booked') DEFAULT 'Available'
+);
+
+-- 3. Create Bookings Table
+CREATE TABLE Bookings (
+    booking_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT,
+    room_id INT,
+    check_in DATE,
+    check_out DATE,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id),
+    FOREIGN KEY (room_id) REFERENCES Rooms(room_id)
+);
+
+-- 4. Create Billing Table
+CREATE TABLE Billing (
+    bill_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT,
+    amount DECIMAL(10,2),
+    payment_status ENUM('Pending', 'Paid') DEFAULT 'Pending',
+    FOREIGN KEY (booking_id) REFERENCES Bookings(booking_id)
+);
+
+-- 5. Insert Sample Customers
+INSERT INTO Customers (name, phone, email) VALUES
+('Alice Smith', '1234567890', 'alice@example.com'),
+('Bob Johnson', '9876543210', 'bob@example.com');
+
+-- 6. Insert Sample Rooms
+INSERT INTO Rooms (room_number, type, price) VALUES
+('101', 'Single', 100.00),
+('102', 'Double', 150.00),
+('201', 'Suite', 300.00);
+
+-- 7. Book Room 101 for Alice (Customer ID 1)
+INSERT INTO Bookings (customer_id, room_id, check_in, check_out)
+VALUES (1, 1, '2025-05-01', '2025-05-05');
+
+-- 8. Mark Room 101 as Booked
+UPDATE Rooms SET status = 'Booked' WHERE room_id = 1;
+
+-- 9. Generate Bill for Booking ID 1
+INSERT INTO Billing (booking_id, amount)
+VALUES (
+    1,
+    DATEDIFF('2025-05-05', '2025-05-01') * 
+    (SELECT price FROM Rooms WHERE room_id = 
+        (SELECT room_id FROM Bookings WHERE booking_id = 1))
+);
+
+-- 10. View All Bookings with Details
+SELECT b.booking_id, c.name AS customer_name, r.room_number, r.type, b.check_in, b.check_out
+FROM Bookings b
+JOIN Customers c ON b.customer_id = c.customer_id
+JOIN Rooms r ON b.room_id = r.room_id;
+
+-- 11. View Pending Bills
+SELECT bill_id, booking_id, amount, payment_status
+FROM Billing
+WHERE payment_status = 'Pending';
+
+-- 12. Mark Bill as Paid
+UPDATE Billing SET payment_status = 'Paid' WHERE bill_id = 1;
